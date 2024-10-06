@@ -4,7 +4,13 @@ defmodule PongWeb.Components.PlayerLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div id="player" class="bg-white w-[16px] h-[20vh] fixed top-0 left-0" style={"left: 6.25%; top: #{@y}%"} phx-hook="TrackClientCursor"></div>
+    <div
+      id="player"
+      class="bg-white w-[1%] h-[20%] fixed top-0 left-0"
+      style={"left: 6.25%; top: #{@y}%"}
+      phx-hook="TrackClientCursor"
+    >
+    </div>
     """
   end
 end
