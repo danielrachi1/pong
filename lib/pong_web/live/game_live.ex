@@ -99,12 +99,17 @@ defmodule PongWeb.GameLive do
         end
       end
 
-    ball = %{
-      x: ball_left_border_next,
-      y: ball_top_border_next,
-      vx: ball_speed_x_next,
-      vy: ball_speed_y_next
-    }
+    ball =
+      if ball_left_border_next > 100 or ball_left_border_next < 0 do
+        %{x: 50, y: 50, vx: -25 / 100, vy: 0 / 100}
+      else
+        %{
+          x: ball_left_border_next,
+          y: ball_top_border_next,
+          vx: ball_speed_x_next,
+          vy: ball_speed_y_next
+        }
+      end
 
     {:noreply, assign(socket, ball: ball)}
   end
