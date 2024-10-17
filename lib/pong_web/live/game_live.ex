@@ -5,6 +5,12 @@ defmodule PongWeb.GameLive do
     ~H"""
     <.live_component module={PongWeb.Components.PlayerLive} id="player" y={@y_player} />
     <.live_component module={PongWeb.Components.BallLive} id="ball" x={@ball.x} y={@ball.y} />
+    <.live_component
+      module={PongWeb.Components.ScoreLive}
+      id="score"
+      left_player_points={@score.left}
+      right_player_points={@score.right}
+    />
     """
   end
 
@@ -16,7 +22,8 @@ defmodule PongWeb.GameLive do
       :ok,
       socket
       |> assign(:y_player, 50)
-      |> assign(:ball, ball),
+      |> assign(:ball, ball)
+      |> assign(:score, %{left: 0, right: 0}),
       layout: {PongWeb.GameHTML, :game}
     }
   end
@@ -33,6 +40,8 @@ defmodule PongWeb.GameLive do
       vy: ball_speed_y_current
     } =
       socket.assigns.ball
+
+    %{left: left_player_current_points, right: right_player_current_points} = socket.assigns.score
 
     ball_height = 1.25
     ball_vertical_middle = ball_top_border_pos_current + ball_height / 2
@@ -99,19 +108,27 @@ defmodule PongWeb.GameLive do
         end
       end
 
-    ball =
-      if ball_left_border_next > 100 or ball_left_border_next < 0 do
-        %{x: 50, y: 50, vx: -25 / 100, vy: 0 / 100}
-      else
-        %{
-          x: ball_left_border_next,
-          y: ball_top_border_next,
-          vx: ball_speed_x_next,
-          vy: ball_speed_y_next
-        }
+    {score, ball} =
+      cond do
+        ball_left_border_next > 100 ->
+          {%{left: left_player_current_points + 1, right: right_player_current_points},
+           %{x: 50, y: 50, vx: 25 / 100, vy: 0 / 100}}
+
+        ball_left_border_next < 0 ->
+          {%{left: left_player_current_points, right: right_player_current_points + 1},
+           %{x: 50, y: 50, vx: -25 / 100, vy: 0 / 100}}
+
+        true ->
+          {%{left: left_player_current_points, right: right_player_current_points},
+           %{
+             x: ball_left_border_next,
+             y: ball_top_border_next,
+             vx: ball_speed_x_next,
+             vy: ball_speed_y_next
+           }}
       end
 
-    {:noreply, assign(socket, ball: ball)}
+    {:noreply, assign(socket, ball: ball, score: score)}
   end
 
   defp is_float_in_range?(float, min, max) do
