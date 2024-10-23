@@ -10,4 +10,8 @@ defmodule PongWeb.HomeLive do
   defp generate_code() do
     :rand.uniform(900_000) + 100_000
   end
+
+  def handle_event("room_code_entered", %{"room_code" => room_code}, socket) do
+    {:noreply, socket}
+  end
 end
