@@ -5,10 +5,10 @@
     <div class="p-6 bg-gray-800 rounded-lg">
       <div class="text-center">
         <p class="text-2xl font-semibold mb-4">Share Game</p>
-        <p class="text-xl mb-2">Room Code: <span id="room-code">ABC123</span></p>
+        <p class="text-xl mb-2">Room Code: <span id="room_code"><%= @room_code %></span></p>
         <button
           class="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded"
-          phx-click="copy_room_code"
+          phx-click={JS.dispatch("phx:copy", to: "#room_code")}
         >
           Copy Room Code
         </button>

@@ -53,3 +53,10 @@ liveSocket.connect()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
 window.liveSocket = liveSocket
+
+window.addEventListener("phx:copy", (event) => {
+  let text = event.target.textContent; // Alternatively use an element or data tag!
+    navigator.clipboard.writeText(text).then(() => {
+    })
+  })
+  
