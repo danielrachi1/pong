@@ -1,22 +1,62 @@
 defmodule PongWeb.GameLive do
   use PongWeb, :live_view
+  alias PongWeb.Presence
 
-  def mount(_params, _session, socket) do
+  def mount(%{"game_id" => game_id}, _session, socket) do
+    # Start the game tick if the socket is connected
     if connected?(socket), do: :timer.send_interval(10, self(), :tick)
-    ball = %{x: 50, y: 50, vx: -25 / 100, vy: 0 / 100}
 
-    {
-      :ok,
+    # Generate a unique player ID using :crypto and Base modules
+    player_id = :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
+
+    # Assign initial values to the socket
+    socket =
       socket
+      |> assign(:player_id, player_id)
+      |> assign(:game_id, game_id)
+      # Initial paddle position for the player
       |> assign(:y_player, 50)
-      |> assign(:ball, ball)
-      |> assign(:score, %{left: 0, right: 0}),
-      layout: false
-    }
+      # Initial paddle position for the opponent
+      |> assign(:y_opponent, 50)
+      # Default side until assigned
+      |> assign(:side, :spectator)
+      # Initial ball state
+      |> assign(:ball, %{x: 50, y: 50, vx: -0.25, vy: 0.0})
+      # Initial score
+      |> assign(:score, %{left: 0, right: 0})
+
+    if connected?(socket) do
+      # Subscribe to the game topic for PubSub
+      PongWeb.Endpoint.subscribe("game:#{game_id}")
+
+      # Track the player's presence in the game
+      Presence.track(self(), "game:#{game_id}", player_id, %{})
+
+      # Get the current list of presences to assign sides
+      presences = Presence.list("game:#{game_id}")
+      side = assign_side(presences, player_id)
+      socket = assign(socket, :side, side)
+    end
+
+    {:ok, socket, layout: false}
   end
 
   def handle_event("cursor-move", %{"mouse_y" => y}, socket) do
-    {:noreply, assign(socket, :y_player, y)}
+    game_id = socket.assigns.game_id
+    player_id = socket.assigns.player_id
+    side = socket.assigns.side
+
+    # Update own paddle position
+    socket = assign(socket, :y_player, y)
+
+    # Broadcast the new position to other clients
+    PongWeb.Endpoint.broadcast_from(self(), "game:#{game_id}", "update_paddle", %{
+      player_id: player_id,
+      side: side,
+      y: y
+    })
+
+    {:noreply, socket}
   end
 
   def handle_info(:tick, socket) do
@@ -77,6 +117,53 @@ defmodule PongWeb.GameLive do
       )
 
     {:noreply, assign(socket, ball: ball, score: score)}
+  end
+
+  def handle_info(
+        %Phoenix.Socket.Broadcast{
+          event: "presence_diff",
+          payload: %{joins: _joins, leaves: _leaves}
+        },
+        socket
+      ) do
+    presences = PongWeb.Presence.list("game:#{socket.assigns.game_id}")
+    side = assign_side(presences, socket.assigns.player_id)
+    {:noreply, assign(socket, :side, side)}
+  end
+
+  def handle_info(%Phoenix.Socket.Broadcast{event: "update_paddle", payload: payload}, socket) do
+    %{player_id: player_id, side: side, y: y} = payload
+
+    if player_id != socket.assigns.player_id and opposite_side?(socket.assigns.side, side) do
+      {:noreply, assign(socket, :y_opponent, y)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp opposite_side?(:left, :right), do: true
+  defp opposite_side?(:right, :left), do: true
+  defp opposite_side?(_, _), do: false
+
+  defp assign_side(presences, player_id) do
+    player_ids = Map.keys(presences) |> Enum.sort()
+
+    cond do
+      player_ids == [player_id] ->
+        :left
+
+      length(player_ids) >= 2 ->
+        [player1_id, player2_id | _] = player_ids
+
+        cond do
+          player_id == player1_id -> :left
+          player_id == player2_id -> :right
+          true -> :spectator
+        end
+
+      true ->
+        :spectator
+    end
   end
 
   defp paddel_sectors(paddel_top, paddel_sector_sizes) do

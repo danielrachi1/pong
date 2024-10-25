@@ -17,7 +17,8 @@ defmodule Pong.Application do
       # Start a worker by calling: Pong.Worker.start_link(arg)
       # {Pong.Worker, arg},
       # Start to serve requests, typically the last entry
-      PongWeb.Endpoint
+      PongWeb.Endpoint,
+      PongWeb.Presence
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

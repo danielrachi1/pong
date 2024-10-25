@@ -6,9 +6,19 @@
       <div class="flex justify-center items-center h-full">
         <div
           id="player"
-          class="bg-white w-[1%] h-[20%] fixed top-0 left-0"
-          style={"left: 6.25%; top: #{@y_player}%"}
+          class="bg-white w-[1%] h-[20%] fixed top-0"
+          style={
+            "left: #{if @side == :left, do: "6.25%", else: "93.75%"}; top: #{@y_player}%"
+          }
           phx-hook="TrackClientCursor"
+        >
+        </div>
+        <div
+          id="opponent"
+          class="bg-white w-[1%] h-[20%] fixed top-0"
+          style={
+            "left: #{if @side == :left, do: "93.75%", else: "6.25%"}; top: #{@y_opponent}%"
+          }
         >
         </div>
         <div

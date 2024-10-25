@@ -17,8 +17,8 @@ defmodule PongWeb.Router do
   scope "/", PongWeb do
     pipe_through :browser
 
-    live "/", HomeLive, :home
-    live "/game", GameLive, :game
+    live "/", HomeLive
+    live "/:game_id", GameLive
   end
 
   # Other scopes may use custom stacks.
