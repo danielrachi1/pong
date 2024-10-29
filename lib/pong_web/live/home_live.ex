@@ -12,6 +12,6 @@ defmodule PongWeb.HomeLive do
   end
 
   def handle_event("room_code_entered", %{"room_code" => room_code}, socket) do
-    {:noreply, socket}
+    {:noreply, redirect(socket, to: "/#{room_code}")}
   end
 end
