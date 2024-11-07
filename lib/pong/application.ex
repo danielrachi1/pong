@@ -18,7 +18,9 @@ defmodule Pong.Application do
       # {Pong.Worker, arg},
       # Start to serve requests, typically the last entry
       PongWeb.Endpoint,
-      PongWeb.Presence
+      PongWeb.Presence,
+      {Registry, keys: :unique, name: Pong.GameRegistry},
+      {DynamicSupervisor, strategy: :one_for_one, name: Pong.GameSupervisor}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
