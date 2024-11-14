@@ -8,7 +8,7 @@
           id="player"
           class="bg-white w-[1%] h-[20%] fixed top-0"
           style={
-            "left: #{if @side == :left, do: "6.25%", else: "93.75%"}; top: #{@y_player}%"
+            "left: #{if @side == :left, do: "6.25%", else: "93.75%"}; top: #{if @side == :left, do: @game.players.left.position, else: @game.players.right.position}%"
           }
           phx-hook="TrackClientCursor"
         >
@@ -17,29 +17,29 @@
           id="opponent"
           class="bg-white w-[1%] h-[20%] fixed top-0"
           style={
-            "left: #{if @side == :left, do: "93.75%", else: "6.25%"}; top: #{@y_opponent}%"
+            "left: #{if @side == :left, do: "93.75%", else: "6.25%"}; top: #{if @side == :left, do: @game.players.right.position, else: @game.players.left.position}%"
           }
         >
         </div>
-        <div
-          id="ball"
-          class="aspect-square h-[1.25%] bg-white"
-          style={"position: absolute;left: #{@ball.x}%; top: #{@ball.y}%"}
-        >
-        </div>
+          <div
+            id="ball"
+            class="aspect-square h-[1.25%] bg-white"
+            style={"position: absolute;left: #{@game.ball.x}%; top: #{@game.ball.y}%"}
+          >
+          </div>
         <div
           class="flex justify-center w-[50%] gap-20"
           style="position: absolute;left: 25%; top: 2%"
         >
           <div class="text-left">
             <p class="text-9xl font-extrabold text-white">
-              <%= @score.left %>
+              <%= @game.score_board.left %>
             </p>
           </div>
 
           <div class="text-right">
             <p class="text-9xl font-extrabold text-white">
-              <%= @score.right %>
+              <%= @game.score_board.right %>
             </p>
           </div>
         </div>

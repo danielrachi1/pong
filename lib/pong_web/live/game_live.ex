@@ -1,44 +1,22 @@
 defmodule PongWeb.GameLive do
   use PongWeb, :live_view
-  alias Pong.GameServer
+  alias Pong.Game
   alias PongWeb.Presence
 
   def mount(%{"game_id" => game_id}, _session, socket) do
-    # Start the GameServer for this game_id if it doesn't exist
-    case DynamicSupervisor.start_child(Pong.GameSupervisor, {GameServer, game_id}) do
-      {:ok, _pid} -> :ok
-      {:error, {:already_started, _pid}} -> :ok
-      {:error, reason} -> {:stop, reason}
-    end
+    game = Game.new(game_id)
 
-    # Generate a unique player ID
-    player_id = :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
-
-    # Get the current game state from the GameServer
-    game_state = GameServer.get_state(game_id)
-
-    # Assign initial values to the socket
     socket =
       socket
-      |> assign(:player_id, player_id)
-      |> assign(:game_id, game_id)
-      # Initial paddle position for the player
-      |> assign(:y_player, 50)
-      # Initial paddle position for the opponent
-      |> assign(:y_opponent, 50)
-      # Default side until assigned
-      |> assign(:side, :spectator)
-      # Assign the game state from the GameServer
-      |> assign(:ball, game_state.ball)
-      |> assign(:score, game_state.score)
+      |> assign(side: :spectator)
+      |> assign(game: game)
 
     if connected?(socket) do
       # Subscribe to the game topic for PubSub
       PongWeb.Endpoint.subscribe("game:#{game_id}")
 
       # Track the player's presence in the game
-      Presence.track(self(), "game:#{game_id}", player_id, %{
-        y_player: socket.assigns.y_player,
+      Presence.track(self(), "game:#{game_id}", socket.id, %{
         side: socket.assigns.side
       })
     end
@@ -46,69 +24,46 @@ defmodule PongWeb.GameLive do
     {:ok, socket, layout: false}
   end
 
-  def handle_event("cursor-move", %{"mouse_y" => y}, socket) do
-    game_id = socket.assigns.game_id
-    player_id = socket.assigns.player_id
-    side = socket.assigns.side
+  def handle_event("mouse_move", %{"mouse_y" => y}, socket) do
+    game = socket.assigns.game
 
-    # Update own paddle position
-    socket = assign(socket, :y_player, y)
+    updated_game = Game.move_player(game, socket.assigns.side, y)
 
-    # Update presence metadata
-    Presence.update(self(), "game:#{game_id}", player_id, %{
-      y_player: y,
-      side: side
-    })
+    # broadcast to other browsers
+    PongWeb.Endpoint.broadcast("game:#{game.id}", "game_update", updated_game)
 
-    # Broadcast the new position to other clients
-    PongWeb.Endpoint.broadcast_from(self(), "game:#{game_id}", "paddle_update", %{
-      "player_id" => player_id,
-      "side" => side,
-      "y" => y
-    })
+    {:noreply, assign(socket, game: updated_game)}
+  end
+
+  def handle_info(%Phoenix.Socket.Broadcast{event: "game_update", payload: updated_game}, socket) do
+    # Update the socket assigns with the new game data
+    {:noreply, assign(socket, :game, updated_game)}
+  end
+
+  def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff", payload: _}, socket) do
+    presences = PongWeb.Presence.list("game:#{socket.assigns.game.id}")
+    side = assign_side(presences, socket.id)
+    {:noreply, assign(socket, side: side)}
+  end
+
+  def handle_info(:move_ball, socket) do
+    updated_game =
+      socket.assigns.game
+      |> Game.collision_check()
+      |> Game.score_check()
+      |> Game.move_ball()
+
+    socket = socket |> assign(game: updated_game)
+
+    PongWeb.Endpoint.broadcast("game:#{updated_game.id}", "game_update", updated_game)
+
+    schedule_ball_movement()
 
     {:noreply, socket}
   end
 
-  # Handle presence updates to assign sides
-  def handle_info(
-        %Phoenix.Socket.Broadcast{
-          event: "presence_diff",
-          payload: %{joins: _joins, leaves: _leaves}
-        },
-        socket
-      ) do
-    presences = PongWeb.Presence.list("game:#{socket.assigns.game_id}")
-    side = assign_side(presences, socket.assigns.player_id)
-    {:noreply, assign(socket, :side, side)}
-  end
-
-  # Handle paddle updates from other players
-  def handle_info(%Phoenix.Socket.Broadcast{event: "paddle_update", payload: payload}, socket) do
-    %{"player_id" => player_id, "side" => side, "y" => y} = payload
-
-    if player_id != socket.assigns.player_id and opposite_side?(socket.assigns.side, side) do
-      {:noreply, assign(socket, :y_opponent, y)}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  # Handle game state updates from the GameServer
-  def handle_info(
-        %Phoenix.Socket.Broadcast{event: "game_state_update", payload: new_state},
-        socket
-      ) do
-    {:noreply, assign(socket, ball: new_state.ball, score: new_state.score)}
-  end
-
-  # Helper functions
-  defp opposite_side?(:left, :right), do: true
-  defp opposite_side?(:right, :left), do: true
-  defp opposite_side?(_, _), do: false
-
   defp assign_side(presences, player_id) do
-    player_ids = Map.keys(presences) |> Enum.sort()
+    player_ids = Map.keys(presences) |> Enum.sort() |> IO.inspect()
 
     cond do
       length(player_ids) == 1 ->
@@ -116,6 +71,7 @@ defmodule PongWeb.GameLive do
 
       length(player_ids) >= 2 ->
         [player1_id, player2_id | _] = player_ids
+        schedule_ball_movement()
 
         cond do
           player_id == player1_id -> :left
@@ -126,5 +82,9 @@ defmodule PongWeb.GameLive do
       true ->
         :spectator
     end
+  end
+
+  defp schedule_ball_movement() do
+    Process.send_after(self(), :move_ball, 10)
   end
 end

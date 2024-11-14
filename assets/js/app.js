@@ -28,7 +28,7 @@ Hooks.TrackClientCursor = {
   mounted() {
     document.addEventListener('mousemove', (e) => {
       const mouse_y = (e.pageY / window.innerHeight) * 100; // in %
-      this.pushEvent('cursor-move', { mouse_y });
+      this.pushEvent('mouse_move', { mouse_y });
     });
   }
 };
