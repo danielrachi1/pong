@@ -2,7 +2,7 @@
 name: User story
 about: Define a user story
 title: As a <user>, I <want to> <so that>.
-labels: ''
+labels: planning
 assignees: ''
 
 ---
